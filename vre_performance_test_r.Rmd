@@ -1,0 +1,110 @@
+---
+title: "R performance benchmarking"
+subtitle: "For purpose of comparing IRC and LASER VREs"
+author: Sean Tuck
+date: 2020-07-13
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Requirement
+
+A requirement of replacing LIDA's IRC secure platform with the new Microsoft Azure cloud platform, LASER, is that research code run at least as quickly on LASER VREs as it does on IRC.
+
+Comparing VREs may be problematic, because of differences in hardware. However, that aside, we can do some **basic benchmarking to ensure that a standard spec IRC VRE performs no faster than a standard spec LASER VRE**.
+
+It has been requested that benchmarking be done using programming languages commonly used for research code, so that it broadly reflects user experience. Hence this benchmarking performed with R. Similar testing will also be done using SQL code, and possibly Python too.
+
+## Benchmarking report
+
+This markdown document serves as a benchmarking report that can be done on any (virtual) machine with R installed. The report should include some basic information about the hardware that's used to run it, and one or several run times of computationally intensive operations. Each report can be saved and the logged run times observed to compare as many machines as is necessary.
+
+The benchmarking will run matrix calculations and multithreaded operations.
+
+### System information
+
+```{r}
+Sys.info()
+```
+
+Use `nodename` and time to create a test ID that can be referred to in later use.
+
+```{r}
+## test_id created in markdown YAML so ID can be used in report file name
+#test_id <- paste(Sys.info()["nodename"], format(Sys.time(), "%Y%m%d%H%M%S"), sep = "_")
+print(test_id)
+```
+
+Note: Code to establish hardware specs assumes Windows OS (IRC and LASER both Windows VREs - by default).
+
+### CPU
+
+```{r}
+cpu <- system('wmic cpu get /VALUE', intern = TRUE)
+cpu <- cpu[grepl("(^Name|^MaxClockSpeed|^NumberOfCores|^NumberOfLogicalProcessors)", cpu)]
+cat(paste(cpu, collapse = "\n"))
+```
+
+### RAM
+
+```{r}
+ram <- system("wmic MemoryChip get Capacity", intern = TRUE)
+ram <- sum(as.numeric(ram), na.rm = TRUE)
+sprintf("RAM capacity: %.1f GB", ram / (1024^3))
+```
+
+### RStudio and R info
+
+```{r}
+data.frame(.Platform)
+```
+
+```{r}
+R.version
+```
+
+Load (installing first if needed) packages required for benchmarking.
+
+Note: Package installation code may have to changed depending on the platform being used (e.g., in LASER, look for packages in local CRAN repository).
+
+```{r, message=FALSE}
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load("benchmarkme")
+```
+
+Full details of current R session:
+
+```{r}
+sessionInfo()
+```
+
+## Performance benchmarking
+
+Benchmarking using Fibonacci calculations, matrix creations, calculations, cross-products, and matrix functions such as Cholesky decomposition and Eigenvalues, and more. 
+
+```{r}
+res <- benchmark_std(runs = 5)
+```
+
+```{r}
+res
+```
+
+Output the above data to CSV file to enable more direct comparisons, test-by-test, among machines.
+
+```{r}
+fname <- paste0("vre_performance_benchmark_results_", test_id, ".csv")
+#rmarkdown::output_metadata$set(rsc_output_files = list(fname))
+write.csv(res, paste0(output_dir, fname))
+```
+
+### Overall benchmark score
+
+Average seconds elapsed across all iterations of all benchmarking tests:
+
+```{r}
+sprintf("OVERALL BENCHMARK SCORE (secs): %.6f", mean(res$elapsed))
+```
+
