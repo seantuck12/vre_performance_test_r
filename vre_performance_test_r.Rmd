@@ -32,8 +32,6 @@ Sys.info()
 Use `nodename` and time to create a test ID that can be referred to in later use.
 
 ```{r}
-## test_id created in markdown YAML so ID can be used in report file name
-#test_id <- paste(Sys.info()["nodename"], format(Sys.time(), "%Y%m%d%H%M%S"), sep = "_")
 print(test_id)
 ```
 
@@ -65,15 +63,6 @@ data.frame(.Platform)
 R.version
 ```
 
-Load (installing first if needed) packages required for benchmarking.
-
-Note: Package installation code may have to changed depending on the platform being used (e.g., in LASER, look for packages in local CRAN repository).
-
-```{r, message=FALSE}
-if (!require("pacman")) install.packages("pacman")
-pacman::p_load("benchmarkme")
-```
-
 Full details of current R session:
 
 ```{r}
@@ -82,21 +71,60 @@ sessionInfo()
 
 ## Performance benchmarking
 
-Benchmarking using Fibonacci calculations, matrix creations, calculations, cross-products, and matrix functions such as Cholesky decomposition and Eigenvalues, and more. 
+Define number of runs each computation will be iterated over.
 
 ```{r}
-res <- benchmark_std(runs = 5)
+num_runs <- 3
 ```
 
+Create matrix: 
+
 ```{r}
-res
+n <- 2000
+X <- rWishart(1, n, diag(n))[ , ,1]
+Y <- rWishart(1, n, diag(n))[ , ,1]
+```
+
+Compute the matrix crossproduct X*'Y:
+
+```{r}
+(crossprod_time <- system.time(for (i in 1:num_runs) crossprod(X, t(Y))))
+```
+
+Compute the Cholesky decomposition:
+
+```{r}
+(chol_time <- system.time(for (i in 1:num_runs) chol(X)))
+```
+
+Compute the eigenvalues and eigenvectors:
+
+```{r}
+(eigen_time <- system.time(for (i in 1:num_runs) eigen(X)))
+```
+
+Perform k-means clustering on the matrix:
+
+```{r}
+(kmeans_time <- system.time(for (i in 1:num_runs) kmeans(X, centers = 10)))
 ```
 
 Output the above data to CSV file to enable more direct comparisons, test-by-test, among machines.
 
 ```{r}
+res <- rbind(
+    data.frame(test_id = test_id, test = "crossprod", total_elapsed = crossprod_time["elapsed"]),
+    data.frame(test_id = test_id, test = "chol", total_elapsed = chol_time["elapsed"]),
+    data.frame(test_id = test_id, test = "eigen", total_elapsed = eigen_time["elapsed"]),
+    data.frame(test_id = test_id, test = "kmeans", total_elapsed = kmeans_time["elapsed"])
+  )
+row.names(res) <- NULL
+res$avg_elapsed <- res$total_elapsed / num_runs
+res
+```
+
+```{r}
 fname <- paste0("vre_performance_benchmark_results_", test_id, ".csv")
-#rmarkdown::output_metadata$set(rsc_output_files = list(fname))
 write.csv(res, paste0(output_dir, fname))
 ```
 
@@ -105,6 +133,6 @@ write.csv(res, paste0(output_dir, fname))
 Average seconds elapsed across all iterations of all benchmarking tests:
 
 ```{r}
-sprintf("OVERALL BENCHMARK SCORE (secs): %.6f", mean(res$elapsed))
+sprintf("OVERALL BENCHMARK SCORE (secs): %.6f", mean(res$avg_elapsed))
 ```
 

@@ -1,4 +1,3 @@
-library(knitr)
 library(rmarkdown)
 
 test_id <- paste(Sys.info()["nodename"], format(Sys.time(), "%Y%m%d%H%M%S"), sep = "_")
